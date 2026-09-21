@@ -1,0 +1,1068 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>OPENCARE // REHABILITATION POD</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Sora:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0A0A0C;
+    --panel:#111114;
+    --panel2:#0D0D10;
+    --lime:#D4FF3D;
+    --limedim:#7C9126;
+    --purple:#9B8AFB;
+    --purpledim:#544C86;
+    --pink:#FF9ECF;
+    --pinkdim:#8A5470;
+    --white:#F5F5F2;
+    --muted:#87878F;
+    --line:#232327;
+  }
+  *{ box-sizing:border-box; }
+  html,body{ margin:0; padding:0; height:100%; }
+  body{
+    background:
+      radial-gradient(circle at 15% 0%, rgba(212,255,61,0.06), transparent 45%),
+      radial-gradient(circle at 85% 100%, rgba(255,158,207,0.06), transparent 45%),
+      var(--bg);
+    background-attachment:fixed;
+    min-height:100vh;
+    font-family:'Space Mono', monospace;
+    color:var(--white);
+    display:flex;
+    justify-content:center;
+  }
+  .display{ font-family:'Sora', sans-serif; }
+
+  .stage{
+    width:100%; max-width:480px; min-height:100vh; position:relative; padding-bottom:30px; z-index:1;
+  }
+
+  /* full-screen background layer: fixed to the viewport, sits behind the interface */
+#bg-layer{
+  position:fixed;
+  inset:0;
+  z-index:0;
+  pointer-events:none;
+  background-size:cover;
+  background-position:center;
+  background-repeat:no-repeat;
+  transition:opacity 0.8s ease;
+  opacity:0;
+  overflow:hidden;
+}
+
+/* The actual looping video */
+#bg-video{
+  position:absolute;
+  inset:0;
+  width:100%;
+  height:100%;
+  object-fit:cover;
+  display:none;
+}
+
+/* Dark overlay so the OPENCARE interface stays readable */
+#bg-layer.video-active::after{
+  content:"";
+  position:absolute;
+  inset:0;
+  background:linear-gradient(
+    rgba(6,7,8,0.42),
+    rgba(6,7,8,0.62)
+  );
+  pointer-events:none;
+}
+
+#bg-layer.active{
+  opacity:1;
+}
+
+  /* once a calibrated background is applied, lift the UI off the photo so it stays legible */
+  .stage.bg-applied .panel{
+    background:linear-gradient(165deg, rgba(8,9,10,0.82), rgba(8,9,10,0.68));
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    box-shadow: 0 12px 36px rgba(0,0,0,0.55);
+    border-width:1.5px;
+  }
+  .stage.bg-applied .hud-header{
+    background: rgba(6,7,8,0.55);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border-radius: 0 0 18px 18px;
+    box-shadow: 0 6px 24px rgba(0,0,0,0.4);
+  }
+  .stage.bg-applied .wordmark{ text-shadow: 0 2px 10px rgba(0,0,0,0.7); }
+  .stage.bg-applied h1.heading,
+  .stage.bg-applied p.sub,
+  .stage.bg-applied .readout-label,
+  .stage.bg-applied .field-label{ text-shadow: 0 1px 6px rgba(0,0,0,0.5); }
+
+  /* ---------- header HUD bar ---------- */
+  .hud-header{
+    display:flex; align-items:center; justify-content:space-between;
+    padding:16px 18px 10px;
+  }
+  .hud-dials{ display:flex; gap:8px; align-items:center; }
+  .hud-dial{ width:26px; height:26px; }
+  .hud-wave{ flex:1; height:22px; margin:0 12px; }
+  .hud-badge{
+    width:34px; height:34px; border-radius:50%; border:1.5px solid var(--lime);
+    display:flex; align-items:center; justify-content:center; flex-shrink:0;
+    background:radial-gradient(circle, rgba(212,255,61,0.18), transparent 70%);
+  }
+  .wordmark{
+    font-family:'Sora', sans-serif; font-weight:800; font-size:13px; letter-spacing:0.14em;
+    color:var(--lime); text-align:center;
+  }
+
+  .content{ padding:6px 18px 40px; }
+  .screen{ display:none; }
+  .screen.active{ display:block; }
+
+  /* ---------- rounded HUD panel ---------- */
+  .panel{
+    position:relative; background:linear-gradient(165deg, rgba(255,255,255,0.035), rgba(255,255,255,0.005));
+    border:1.3px solid var(--line); border-radius:20px; padding:20px 18px 18px;
+    margin-bottom:16px;
+    backdrop-filter: blur(2px);
+  }
+  .panel.accent-lime{ border-color:var(--limedim); }
+  .panel.accent-purple{ border-color:var(--purpledim); }
+  .panel.accent-pink{ border-color:var(--pinkdim); }
+  .panel-tag{
+    position:absolute; top:-10px; left:16px; background:var(--bg); padding:0 8px;
+    font-size:10px; letter-spacing:0.16em; color:var(--muted); text-transform:uppercase;
+  }
+  .panel-tag.lime{ color:var(--lime); }
+  .panel-tag.purple{ color:var(--purple); }
+  .panel-tag.pink{ color:var(--pink); }
+
+  h1.heading{
+    font-family:'Sora', sans-serif; font-weight:700; font-size:22px; line-height:1.35;
+    color:var(--white); margin:4px 0 10px;
+  }
+  h2.subheading{
+    font-family:'Sora', sans-serif; font-weight:700; font-size:14px; letter-spacing:0.03em;
+    color:var(--lime); margin:18px 0 6px;
+  }
+  h2.subheading:first-of-type{ margin-top:4px; }
+  p.sub{ font-size:13px; color:var(--muted); line-height:1.6; margin:0 0 18px; }
+  p.disclaimer-p{ font-size:12.5px; color:#c9c9ce; line-height:1.7; margin:0 0 12px; }
+
+  label.field-label{
+    display:block; font-size:10.5px; letter-spacing:0.12em; text-transform:uppercase;
+    color:var(--muted); margin-bottom:6px;
+  }
+  input[type=text], input[type=tel], textarea{
+    width:100%; font-family:'Space Mono', monospace; font-size:14px; color:var(--white);
+    background:rgba(255,255,255,0.03); border:1px solid var(--line); border-radius:12px;
+    padding:12px 14px; outline:none; margin-bottom:16px;
+  }
+  input::placeholder, textarea::placeholder{ color:#4d4d54; }
+  input:focus, textarea:focus{ border-color:var(--lime); }
+  textarea{ min-height:76px; resize:none; }
+
+  .btn{
+    font-family:'Sora', sans-serif; font-weight:700; font-size:13.5px; letter-spacing:0.03em;
+    border-radius:100px; padding:14px 20px; cursor:pointer; width:100%; border:none;
+    text-align:center;
+  }
+  .btn-lime{ background:var(--lime); color:#0A0A0C; }
+  .btn-lime:active{ background:#c2ec2b; }
+  .btn-lime.disabled{ background:#3a4014; color:#6b6b52; cursor:not-allowed; }
+  .btn-purple{ background:var(--purple); color:#0A0A0C; }
+  .btn-purple.disabled{ background:#3a3660; color:#6e6a86; cursor:not-allowed; }
+  .btn-outline{ background:none; border:1.3px solid var(--line); color:var(--muted); }
+  .btn-outline:active{ border-color:var(--white); color:var(--white); }
+  .btn-danger-outline{ background:none; border:1.3px solid var(--pinkdim); color:var(--pink); }
+
+  /* ---------- disclaimer / consent screen ---------- */
+  .disclaimer-scroll{
+    max-height:52vh; overflow-y:auto; padding-right:6px; margin-bottom:6px;
+    border-bottom:1px solid var(--line); padding-bottom:14px;
+  }
+  .disclaimer-scroll::-webkit-scrollbar{ width:5px; }
+  .disclaimer-scroll::-webkit-scrollbar-thumb{ background:var(--limedim); border-radius:4px; }
+
+  .fingerprint-wrap{ display:flex; flex-direction:column; align-items:center; margin-top:22px; }
+  .fingerprint-btn{
+    width:96px; height:96px; border-radius:50%; position:relative; cursor:pointer;
+    background:rgba(212,255,61,0.05); border:1.5px solid var(--limedim);
+    display:flex; align-items:center; justify-content:center; user-select:none; -webkit-user-select:none;
+  }
+  .fingerprint-btn svg.fp-icon{ position:relative; z-index:2; }
+  .fingerprint-progress{ position:absolute; inset:0; transform:rotate(-90deg); }
+  .fingerprint-progress circle{
+    fill:none; stroke:var(--lime); stroke-width:3; stroke-linecap:round;
+    stroke-dasharray:283; stroke-dashoffset:283;
+  }
+  .fingerprint-btn.success{ border-color:var(--lime); background:rgba(212,255,61,0.16); }
+  .fingerprint-btn.disabled{ opacity:0.4; cursor:not-allowed; }
+  .fingerprint-caption{ font-size:11px; color:var(--muted); letter-spacing:0.08em; text-transform:uppercase; margin-top:14px; text-align:center; }
+  .fingerprint-caption.success-text{ color:var(--lime); }
+
+  /* ---------- camera / capture screen ---------- */
+  .scan-frame{
+    width:230px; height:230px; margin:6px auto 20px; position:relative;
+    display:flex; align-items:center; justify-content:center;
+  }
+  .scan-frame svg.frame-svg{ position:absolute; inset:0; width:100%; height:100%; z-index:1; }
+  .scan-inner{
+    width:170px; height:170px; border-radius:50%; overflow:hidden; background:#000;
+    display:flex; align-items:center; justify-content:center; position:relative; z-index:2;
+    border:1px solid var(--limedim);
+  }
+  .scan-inner img{ width:100%; height:100%; object-fit:cover; }
+  .capture-btn{
+    width:64px; height:64px; border-radius:50%; background:var(--lime); border:4px solid #0A0A0C;
+    box-shadow:0 0 0 2px var(--lime); position:absolute; bottom:-32px; left:50%; transform:translateX(-50%);
+    display:flex; align-items:center; justify-content:center; cursor:pointer; z-index:3;
+  }
+  .sweep{ animation:sweep 2.4s linear infinite; transform-origin:center; }
+  @keyframes sweep{ from{ transform:rotate(0deg);} to{ transform:rotate(360deg);} }
+
+  /* ---------- pod entry ---------- */
+  .pod-visual{ display:flex; justify-content:center; margin:10px 0 24px; }
+
+  /* ---------- quiz ---------- */
+  .quiz-options{ display:flex; flex-direction:column; gap:8px; margin-bottom:18px; }
+  .quiz-option{
+    display:flex; align-items:center; gap:10px; font-size:13px; color:#c9c9ce;
+    padding:10px 12px; border:1px solid var(--line); border-radius:12px; cursor:pointer;
+  }
+  .quiz-option input{ accent-color:var(--purple); width:15px; height:15px; flex-shrink:0; }
+  .quiz-option.checked{ border-color:var(--purple); color:var(--white); background:rgba(155,138,251,0.08); }
+
+  /* ---------- graph readout ---------- */
+  .readout-row{ display:flex; align-items:baseline; gap:10px; margin-bottom:6px; }
+  .readout-num{ font-family:'Sora', sans-serif; font-weight:800; font-size:44px; }
+  .readout-num.hot{ color:var(--pink); }
+  .readout-num.cool{ color:var(--lime); }
+  .readout-label{ font-size:11px; color:var(--muted); letter-spacing:0.08em; text-transform:uppercase; }
+  .graph-wrap{ width:100%; height:130px; }
+
+  /* ---------- breathing ---------- */
+  .breath-wrap{ display:flex; flex-direction:column; align-items:center; padding:16px 0 6px; }
+  .breath-circle-holder{ position:relative; width:230px; height:230px; display:flex; align-items:center; justify-content:center; margin-bottom:26px; }
+  .breath-ring{ position:absolute; border-radius:50%; border:1px solid var(--line); }
+  .breath-core{
+    width:96px; height:96px; border-radius:50%;
+    background:radial-gradient(circle, rgba(212,255,61,0.55), rgba(212,255,61,0.05) 70%);
+    border:1.5px solid var(--lime);
+    transform:scale(0.68);
+    box-shadow:0 0 20px rgba(212,255,61,0.15);
+  }
+  #breath-label{ font-family:'Sora', sans-serif; font-size:19px; font-weight:700; letter-spacing:0.08em; color:var(--white); text-transform:uppercase; min-height:26px; }
+  #breath-cycle{ font-size:11px; color:var(--muted); margin-top:8px; letter-spacing:0.08em; }
+
+  /* ---------- option cards ---------- */
+  .option-row{ display:flex; gap:12px; }
+  .option-card{
+    flex:1; border-radius:20px; padding:20px 14px; cursor:pointer; text-align:left; min-height:120px;
+    display:flex; flex-direction:column; justify-content:space-between;
+  }
+  .option-card.lime{ background:linear-gradient(155deg, #D4FF3D, #A9D400); color:#0A0A0C; }
+  .option-card.purple{ background:linear-gradient(155deg, #B7A9FF, #8A76F5); color:#0A0A0C; }
+  .option-card .opt-title{ font-family:'Sora', sans-serif; font-weight:800; font-size:16px; line-height:1.25; }
+  .option-card .opt-arrow{ align-self:flex-end; font-size:18px; }
+
+  /* ---------- chat ---------- */
+  #screen-chat .content{ display:flex; flex-direction:column; height:calc(100vh - 70px); padding-bottom:0; }
+  #chat-messages{ flex:1; overflow-y:auto; display:flex; flex-direction:column; gap:12px; padding:6px 0 12px; }
+  .msg{ max-width:80%; padding:12px 15px; font-size:13px; line-height:1.55; border-radius:16px; }
+  .msg.bot{ align-self:flex-start; background:rgba(155,138,251,0.14); border:1px solid var(--purpledim); color:var(--white); border-bottom-left-radius:4px; }
+  .msg.user{ align-self:flex-end; background:rgba(212,255,61,0.14); border:1px solid var(--limedim); color:var(--white); border-bottom-right-radius:4px; }
+  .chat-inputbar{ display:flex; gap:8px; padding:10px 0 20px; }
+  .chat-inputbar input{ margin-bottom:0; flex:1; border-radius:100px; }
+  .send-btn{
+    width:46px; height:46px; border-radius:50%; background:var(--lime); border:none; cursor:pointer;
+    display:flex; align-items:center; justify-content:center; flex-shrink:0;
+  }
+  .send-btn.disabled{ background:#2c2f16; cursor:not-allowed; }
+
+  /* ---------- payment ---------- */
+  .pay-row{ display:flex; gap:10px; }
+  .pay-row > div{ flex:1; }
+  .amount-box{
+    display:flex; justify-content:space-between; align-items:center; padding:14px 16px;
+    background:rgba(255,158,207,0.06); border:1px solid var(--pinkdim); border-radius:14px; margin-bottom:18px;
+  }
+  .amount-box .amt{ font-family:'Sora', sans-serif; font-weight:800; font-size:22px; color:var(--pink); }
+
+  .spinner-inline{
+    width:16px; height:16px; border-radius:50%; border:2px solid rgba(10,10,12,0.35); border-top-color:#0A0A0C;
+    animation:spin 0.7s linear infinite; display:inline-block; vertical-align:middle; margin-right:8px;
+  }
+  @keyframes spin{ from{ transform:rotate(0deg);} to{ transform:rotate(360deg);} }
+
+  .end-icon{ display:flex; justify-content:center; margin-bottom:20px; }
+  .restart-link{ display:block; text-align:center; margin-top:22px; font-size:11px; color:var(--muted); letter-spacing:0.08em; cursor:pointer; text-decoration:underline; }
+</style>
+</head>
+<body>
+
+<div id="bg-layer">
+  <video id="bg-video" autoplay muted loop playsinline></video>
+</div>
+<div class="stage" id="stage">
+
+  <!-- persistent HUD header -->
+  <div class="hud-header">
+    <div class="hud-dials">
+      <svg class="hud-dial" viewBox="0 0 26 26"><circle cx="13" cy="13" r="10" fill="none" stroke="#7C9126" stroke-width="1.2"/><circle cx="13" cy="13" r="10" fill="none" stroke="#D4FF3D" stroke-width="1.6" stroke-dasharray="63" stroke-dashoffset="20" stroke-linecap="round"/><circle cx="13" cy="13" r="2" fill="#D4FF3D"/></svg>
+      <svg class="hud-dial" viewBox="0 0 26 26"><circle cx="13" cy="13" r="10" fill="none" stroke="#544C86" stroke-width="1.2"/><circle cx="13" cy="13" r="10" fill="none" stroke="#9B8AFB" stroke-width="1.6" stroke-dasharray="63" stroke-dashoffset="40" stroke-linecap="round"/><circle cx="13" cy="13" r="2" fill="#9B8AFB"/></svg>
+    </div>
+    <div class="hud-wave"><svg viewBox="0 0 120 22" width="100%" height="100%" preserveAspectRatio="none" id="header-wave"><polyline fill="none" stroke="#FF9ECF" stroke-width="1.4" points=""/></svg></div>
+    <div class="hud-badge">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#D4FF3D" stroke-width="2"><path d="M12 2a5 5 0 0 1 5 5c0 3-2 4-2 7h-6c0-3-2-4-2-7a5 5 0 0 1 5-5z"/><path d="M9 17h6M10 20h4"/></svg>
+    </div>
+  </div>
+  <div class="wordmark">OPENCARE // REHAB POD</div>
+
+  <div class="content">
+
+    <!-- ===================== DISCLAIMER / CONSENT ===================== -->
+    <div class="screen active" id="screen-disclaimer">
+      <div class="panel accent-pink">
+        <span class="panel-tag pink">Consent &amp; Disclosure</span>
+        <h1 class="heading" style="font-size:19px;">Before we begin, please review the following</h1>
+
+        <div class="disclaimer-scroll">
+          <h2 class="subheading">1. Nature of this service</h2>
+          <p class="disclaimer-p">OPENCARE is a supportive wellbeing tool designed to help you notice and respond to shifts in stress and mood. It is not a licensed medical device, and it does not diagnose, treat, or cure any mental health condition. Nothing generated inside this pod, including AI chatbot responses, biometric readouts, or guided exercises, should be treated as a substitute for professional medical, psychological, or psychiatric advice.</p>
+
+          <h2 class="subheading">2. Data we collect</h2>
+          <p class="disclaimer-p">To calibrate the pod to you, we collect the information you provide during profile creation (name, age, self-reported habits and notes), a photo taken via your device's camera, your answers to a short preference quiz, and session data generated while you are inside the pod, including simulated stress-index readings, breathing exercise completion, and any messages exchanged with the AI chatbot. This data is used to personalise your session and, where you engage a human professional, may be shared with that provider to inform your consultation.</p>
+
+          <h2 class="subheading">3. Limitations of AI-based support</h2>
+          <p class="disclaimer-p">The AI chatbot available inside the pod is an automated system. It can offer general, supportive conversation and suggest exercises such as guided breathing, but it cannot assess risk, provide a diagnosis, or respond to a medical or psychiatric emergency. If at any point you feel you are in crisis or at risk of harming yourself or others, please exit the pod immediately and contact local emergency services or a crisis helpline.</p>
+
+          <h2 class="subheading">4. Escalation and human professionals</h2>
+          <p class="disclaimer-p">Access to a human mental health professional through this pod may be offered based on your session's simulated stress and wellbeing readings. Where your readings do not meet the threshold for automatic escalation, you may still be offered the option to connect with a professional for a predetermined fee. Choosing to pay for this access is entirely voluntary, and declining it will not affect your ability to use the AI chatbot or any other feature of the pod.</p>
+
+          <h2 class="subheading">5. Voluntary participation</h2>
+          <p class="disclaimer-p">Your participation in this session is entirely voluntary. You may exit the pod, stop any exercise, or end a conversation with the AI chatbot at any time, for any reason, without needing to provide justification. Declining consent below will prevent you from proceeding further.</p>
+
+          <h2 class="subheading">6. Data retention &amp; withdrawal of consent</h2>
+          <p class="disclaimer-p">Session data, including your profile details and photo, is retained only for as long as is necessary to provide this service, unless you have engaged a human professional, in which case relevant records may be retained in line with that provider's own record-keeping obligations. You may request the deletion of your data or withdraw your consent at any time by contacting OPENCARE support.</p>
+
+          <h2 class="subheading">7. Camera &amp; photo capture consent</h2>
+          <p class="disclaimer-p">As part of setting up your profile, OPENCARE will prompt your device to open its camera so you can take a single identity photo. The captured image is used only to personalise and verify your session and is handled under the same data retention terms described above.</p>
+
+          <h2 class="subheading">8. Acknowledgement</h2>
+          <p class="disclaimer-p">By checking the box below and then pressing the verification control, you confirm that you have read and understood this disclosure, that you specifically consent to OPENCARE capturing your photo, that you are voluntarily choosing to proceed, and that you understand OPENCARE is a supportive tool and not a replacement for professional or emergency care.</p>
+        </div>
+
+        <label style="display:flex; align-items:flex-start; gap:10px; margin-top:16px; cursor:pointer;">
+          <input type="checkbox" id="photo-consent-checkbox" style="margin-top:3px; width:16px; height:16px; accent-color:#D4FF3D; flex-shrink:0;" />
+          <span style="font-size:12px; color:#c9c9ce; line-height:1.55;">I consent to the Rehab Pod accessing my camera and capturing images of me for phenotyping and miscellaneous purposes.</span>
+        </label>
+
+        <div class="fingerprint-wrap">
+          <div class="fingerprint-btn disabled" id="fp-btn">
+            <svg class="fingerprint-progress" viewBox="0 0 100 100" width="96" height="96">
+              <circle cx="50" cy="50" r="45"/>
+            </svg>
+            <svg class="fp-icon" width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="#D4FF3D" stroke-width="1.4">
+              <path d="M12 11a2 2 0 0 1 2 2v2a6 6 0 0 1-1 3"/>
+              <path d="M8 14a4 4 0 0 1 8 0"/>
+              <path d="M6 12a6 6 0 0 1 12 0v2a10 10 0 0 1-1 4.5"/>
+              <path d="M4 10a8 8 0 0 1 15.5-2.5"/>
+              <path d="M4.5 15.5A8 8 0 0 1 4 12"/>
+              <path d="M10 20.5A10 10 0 0 1 2 12"/>
+            </svg>
+          </div>
+          <div class="fingerprint-caption" id="fp-caption">Check the box above to enable consent verification</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===================== POD PREFERENCE CALIBRATION (QUIZ) ===================== -->
+    <div class="screen" id="screen-quiz">
+      <div class="panel accent-purple" id="quiz-panel">
+        <span class="panel-tag purple">Pod Preference Calibration</span>
+        <h1 class="heading" style="font-size:19px;">A few quick questions to calibrate your pod</h1>
+        <p class="sub">There are no right answers here — this just helps OPENCARE get a feel for you.</p>
+
+        <div id="quiz-questions">
+          <label class="field-label">1. When you're overwhelmed, you tend to:</label>
+          <div class="quiz-options" data-q="q1">
+            <label class="quiz-option"><input type="radio" name="q1" value="a" /> Go for a walk</label>
+            <label class="quiz-option"><input type="radio" name="q1" value="b" /> Talk to someone</label>
+            <label class="quiz-option"><input type="radio" name="q1" value="c" /> Sit in silence</label>
+            <label class="quiz-option"><input type="radio" name="q1" value="d" /> Distract yourself</label>
+          </div>
+
+          <label class="field-label">2. Pick a colour that calms you:</label>
+          <div class="quiz-options" data-q="q2">
+            <label class="quiz-option"><input type="radio" name="q2" value="a" /> Blue</label>
+            <label class="quiz-option"><input type="radio" name="q2" value="b" /> Green</label>
+            <label class="quiz-option"><input type="radio" name="q2" value="c" /> Gold</label>
+            <label class="quiz-option"><input type="radio" name="q2" value="d" /> Purple</label>
+          </div>
+
+          <label class="field-label">3. Your ideal reset environment:</label>
+          <div class="quiz-options" data-q="q3">
+            <label class="quiz-option"><input type="radio" name="q3" value="a" /> Ocean</label>
+            <label class="quiz-option"><input type="radio" name="q3" value="b" /> Mountains</label>
+            <label class="quiz-option"><input type="radio" name="q3" value="c" /> A cabin by the water</label>
+            <label class="quiz-option"><input type="radio" name="q3" value="d" /> Somewhere quiet, no scenery needed</label>
+          </div>
+
+          <label class="field-label">4. You recharge best through:</label>
+          <div class="quiz-options" data-q="q4">
+            <label class="quiz-option"><input type="radio" name="q4" value="a" /> Movement</label>
+            <label class="quiz-option"><input type="radio" name="q4" value="b" /> Connection</label>
+            <label class="quiz-option"><input type="radio" name="q4" value="c" /> Stillness</label>
+            <label class="quiz-option"><input type="radio" name="q4" value="d" /> Novelty</label>
+          </div>
+        </div>
+
+        <button class="btn btn-purple disabled" id="quiz-submit">See my results</button>
+      </div>
+
+      <div class="panel accent-lime" id="quiz-result-panel" style="display:none;text-align:center;">
+        <span class="panel-tag lime">Results</span>
+        <h1 class="heading" style="font-size:18px;">Your results are in. Do you want to apply changes to the pod?</h1>
+        <button class="btn btn-lime" id="quiz-apply-yes" style="margin-top:6px;">Yes, apply changes</button>
+        <button class="btn btn-outline" id="quiz-apply-no" style="margin-top:10px;">No, keep default</button>
+      </div>
+    </div>
+
+    <!-- ===================== PROFILE ===================== -->
+    <div class="screen" id="screen-profile">
+      <div class="panel accent-lime">
+        <span class="panel-tag lime">Subject Registration</span>
+        <h1 class="heading">Let's set up your profile</h1>
+        <p class="sub">A few details so OPENCARE can calibrate the pod to you.</p>
+
+        <label class="field-label">Name</label>
+        <input type="text" id="input-name" placeholder="Full name" />
+
+        <label class="field-label">Age</label>
+        <input type="tel" id="input-age" placeholder="Age" maxlength="3" />
+
+        <label class="field-label">Other habits &amp; notes</label>
+        <textarea id="input-details" placeholder="Sleep patterns, ongoing concerns, what tends to help..."></textarea>
+
+        <button class="btn btn-lime disabled" id="profile-continue">Continue to biometric capture</button>
+      </div>
+    </div>
+
+    <!-- ===================== PICTURE CAPTURE ===================== -->
+    <div class="screen" id="screen-capture">
+      <div class="panel accent-lime">
+        <span class="panel-tag lime">Biometric Capture</span>
+        <h1 class="heading">Center yourself in frame</h1>
+        <p class="sub">OPENCARE uses a quick capture to personalise your session.</p>
+
+        <div class="scan-frame">
+          <svg viewBox="0 0 230 230" class="frame-svg">
+            <circle cx="115" cy="115" r="112" fill="none" stroke="#232327" stroke-width="1"/>
+            <circle cx="115" cy="115" r="98" fill="none" stroke="#7C9126" stroke-width="1" stroke-dasharray="3 7"/>
+            <g class="sweep">
+              <path d="M115,115 L115,17 A98,98 0 0,1 190,60 Z" fill="rgba(212,255,61,0.10)"/>
+            </g>
+            <line x1="115" y1="3" x2="115" y2="17" stroke="#D4FF3D" stroke-width="2"/>
+            <line x1="115" y1="213" x2="115" y2="227" stroke="#D4FF3D" stroke-width="2"/>
+            <line x1="3" y1="115" x2="17" y2="115" stroke="#D4FF3D" stroke-width="2"/>
+            <line x1="213" y1="115" x2="227" y2="115" stroke="#D4FF3D" stroke-width="2"/>
+          </svg>
+          <div class="scan-inner" id="scan-inner">
+            <svg id="capture-placeholder" width="52" height="52" viewBox="0 0 24 24" fill="none" stroke="#7C9126" stroke-width="1.4"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+            <img id="capture-img" style="display:none;" />
+          </div>
+          <div class="capture-btn" id="capture-btn">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#0A0A0C" stroke-width="2.4"><circle cx="12" cy="12" r="7"/></svg>
+          </div>
+        </div>
+        <input type="file" accept="image/*" capture="user" id="capture-input" style="display:none;" />
+
+        <button class="btn btn-lime disabled" id="capture-continue" style="margin-top:24px;">Form profile</button>
+      </div>
+    </div>
+
+    <!-- ===================== POD ENTRY ===================== -->
+    <div class="screen" id="screen-pod">
+      <div class="panel accent-purple" style="text-align:center;padding-top:30px;">
+        <span class="panel-tag purple">Calibration</span>
+        <div class="pod-visual">
+          <svg width="120" height="120" viewBox="0 0 120 120">
+            <circle cx="60" cy="60" r="56" fill="none" stroke="#544C86" stroke-width="1"/>
+            <circle cx="60" cy="60" r="42" fill="none" stroke="#9B8AFB" stroke-width="1" stroke-dasharray="2 6"/>
+            <rect x="42" y="20" width="36" height="80" rx="18" fill="none" stroke="#9B8AFB" stroke-width="1.6"/>
+            <line x1="60" y1="30" x2="60" y2="90" stroke="#9B8AFB" stroke-width="1" stroke-dasharray="3 4"/>
+          </svg>
+        </div>
+        <h1 class="heading" style="font-size:19px;">Verify that you have calibrated the pod to your likings, please press proceed on the pod calibration page, before doing the same with OpenCare.</h1>
+        <button class="btn btn-purple" id="pod-verify" style="margin-top:10px;">Proceed</button>
+      </div>
+    </div>
+
+    <!-- ===================== STRESS HIGH ===================== -->
+    <div class="screen" id="screen-stress-high">
+      <div class="panel accent-pink">
+        <span class="panel-tag pink">Biometric Stress Index</span>
+        <div class="readout-row">
+          <span class="readout-num hot" id="stress-high-num">78</span>
+          <span class="readout-label">Elevated</span>
+        </div>
+        <div class="graph-wrap">
+          <svg viewBox="0 0 300 130" width="100%" height="100%" preserveAspectRatio="none">
+            <polyline id="graph-high" fill="none" stroke="#FF9ECF" stroke-width="2" points=""/>
+          </svg>
+        </div>
+      </div>
+      <div class="panel accent-pink">
+        <span class="panel-tag pink">Recommendation</span>
+        <h1 class="heading" style="font-size:18px;">Your stress graph is high. Would you like to proceed with breathing exercises?</h1>
+        <button class="btn btn-lime" id="begin-breathing" style="margin-top:6px;">Yes, begin breathing exercises</button>
+      </div>
+    </div>
+
+    <!-- ===================== BREATHING (4-7-8-5) ===================== -->
+    <div class="screen" id="screen-breathing">
+      <div class="panel accent-lime" style="text-align:center;">
+        <span class="panel-tag lime">Guided Breathing · 4-7-8 Method</span>
+        <div class="breath-wrap">
+          <div class="breath-circle-holder">
+            <div class="breath-ring" style="width:230px;height:230px;"></div>
+            <div class="breath-ring" style="width:175px;height:175px;"></div>
+            <div class="breath-core" id="breath-core"></div>
+          </div>
+          <div id="breath-label">BREATHE IN</div>
+          <div id="breath-cycle">4 SECONDS</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===================== STRESS LOW + OPTIONS ===================== -->
+    <div class="screen" id="screen-options">
+      <div class="panel accent-lime">
+        <span class="panel-tag lime">Biometric Stress Index</span>
+        <div class="readout-row">
+          <span class="readout-num cool" id="stress-low-num">34</span>
+          <span class="readout-label">Settling</span>
+        </div>
+        <div class="graph-wrap">
+          <svg viewBox="0 0 300 130" width="100%" height="100%" preserveAspectRatio="none">
+            <polyline id="graph-low" fill="none" stroke="#D4FF3D" stroke-width="2" points=""/>
+          </svg>
+        </div>
+      </div>
+
+      <p class="sub" style="padding:0 4px;">Your stress has decreased. You may connect to these two options:</p>
+      <div class="option-row">
+        <div class="option-card lime" id="opt-chatbot">
+          <div class="opt-title">AI<br/>Chatbot</div>
+          <div class="opt-arrow">&#8599;</div>
+        </div>
+        <div class="option-card purple" id="opt-human">
+          <div class="opt-title">Human<br/>Professional</div>
+          <div class="opt-arrow">&#8599;</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===================== AI CHATBOT ===================== -->
+    <div class="screen" id="screen-chat">
+      <div class="content">
+        <div class="panel accent-purple" style="margin-bottom:10px;padding:12px 16px;">
+          <span class="panel-tag purple">AI Chatbot</span>
+          <span style="font-size:12px;color:var(--muted);">Session active</span>
+        </div>
+        <div id="chat-messages"></div>
+        <div class="chat-inputbar">
+          <input type="text" id="chat-input" placeholder="Type a message..." />
+          <button class="send-btn" id="chat-send">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#0A0A0C" stroke-width="2.2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===================== HUMAN PROFESSIONAL / PAYMENT ===================== -->
+    <div class="screen" id="screen-human">
+      <div class="panel accent-purple">
+        <span class="panel-tag purple">Escalation Assessment</span>
+        <h1 class="heading" style="font-size:18px;">Your mental health score isn't high enough to escalate you to a human professional, but for the predetermined payment, you can access a human professional regardless of need.</h1>
+      </div>
+
+      <div class="panel accent-pink">
+        <span class="panel-tag pink">Payment</span>
+        <div class="amount-box">
+          <span style="font-size:11px;color:var(--muted);letter-spacing:0.08em;text-transform:uppercase;">Predetermined fee</span>
+          <span class="amt">&#8377;3,500</span>
+        </div>
+        <label class="field-label">Card number</label>
+        <input type="text" placeholder="•••• •••• •••• ••••" />
+        <div class="pay-row">
+          <div>
+            <label class="field-label">Expiry</label>
+            <input type="text" placeholder="MM / YY" />
+          </div>
+          <div>
+            <label class="field-label">CVV</label>
+            <input type="text" placeholder="•••" />
+          </div>
+        </div>
+        <button class="btn btn-lime" id="pay-now" style="margin-top:4px;">Pay &#8377;3,500 &amp; connect</button>
+        <button class="btn btn-danger-outline" id="pay-decline" style="margin-top:12px;">Do not proceed</button>
+      </div>
+    </div>
+
+    <!-- ===================== END ===================== -->
+    <div class="screen" id="screen-end">
+      <div class="panel accent-lime" style="text-align:center;padding-top:30px;">
+        <div class="end-icon">
+          <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="#D4FF3D" stroke-width="1.5"><path d="M12 2a5 5 0 0 1 5 5c0 3-2 4-2 7h-6c0-3-2-4-2-7a5 5 0 0 1 5-5z"/><path d="M9 17h6M10 20h4"/></svg>
+        </div>
+        <h1 class="heading" style="font-size:19px;">Your time in the rehabilitation pod has come to an end, but do not worry. If you feel overwhelmed again, OpenCare is always there for you!</h1>
+        <span class="restart-link" id="restart-link">Restart simulation</span>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+(function(){
+  function $(id){ return document.getElementById(id); }
+  function qsa(sel){ return Array.prototype.slice.call(document.querySelectorAll(sel)); }
+
+  var state = { name:"", age:"", details:"", photo:null };
+
+  // ---------- header waveform (decorative, always animating) ----------
+  (function(){
+    var poly = document.querySelector("#header-wave polyline");
+    var pts = [];
+    var n = 40;
+    for(var i=0;i<n;i++) pts.push(11);
+    function tick(){
+      pts.shift();
+      pts.push(6 + Math.random()*10);
+      var str = pts.map(function(v,i){ return (i*(120/(n-1))).toFixed(1)+","+v.toFixed(1); }).join(" ");
+      poly.setAttribute("points", str);
+    }
+    setInterval(tick, 220);
+    tick();
+  })();
+
+  // ---------- screen switching ----------
+  var allScreens = ["disclaimer","quiz","profile","capture","pod","stress-high","breathing","options","chat","human","end"];
+  function showScreen(name){
+    allScreens.forEach(function(s){ $("screen-"+s).classList.remove("active"); });
+    $("screen-"+name).classList.add("active");
+    window.scrollTo(0,0);
+  }
+
+  // ---------- disclaimer / consent: immediate-tap verification (gated by checkbox) ----------
+  var fpBtn = $("fp-btn"), fpCaption = $("fp-caption");
+  var photoConsentCheckbox = $("photo-consent-checkbox");
+
+  function fpIsEnabled(){ return photoConsentCheckbox.checked; }
+
+  photoConsentCheckbox.addEventListener("change", function(){
+    if(fpBtn.classList.contains("success")) return;
+    if(photoConsentCheckbox.checked){
+      fpBtn.classList.remove("disabled");
+      fpCaption.textContent = "Press to consent and continue";
+    } else {
+      fpBtn.classList.add("disabled");
+      fpCaption.textContent = "Check the box above to enable consent verification";
+    }
+  });
+
+  fpBtn.addEventListener("click", function(){
+    if(fpBtn.classList.contains("success")) return;
+    if(!fpIsEnabled()){
+      fpCaption.textContent = "Please check the consent box above first";
+      return;
+    }
+    fpBtn.classList.add("success");
+    var circle = fpBtn.querySelector(".fingerprint-progress circle");
+    circle.style.transition = "stroke-dashoffset 0.3s ease";
+    circle.style.strokeDashoffset = "0";
+    fpCaption.textContent = "Consent verified";
+    fpCaption.classList.add("success-text");
+    setTimeout(function(){ showScreen("quiz"); }, 450);
+  });
+
+  // ---------- pod preference calibration quiz ----------
+  var quizSubmit = $("quiz-submit");
+  var quizPanel = $("quiz-panel");
+  var quizResultPanel = $("quiz-result-panel");
+
+  qsa(".quiz-option").forEach(function(opt){
+    var input = opt.querySelector("input");
+    input.addEventListener("change", function(){
+      var groupName = input.name;
+      qsa('input[name="' + groupName + '"]').forEach(function(sib){
+        sib.closest(".quiz-option").classList.toggle("checked", sib.checked);
+      });
+      checkQuizComplete();
+    });
+  });
+
+  function checkQuizComplete(){
+    var groups = ["q1","q2","q3","q4"];
+    var complete = groups.every(function(g){
+      return qsa('input[name="' + g + '"]').some(function(i){ return i.checked; });
+    });
+    quizSubmit.classList.toggle("disabled", !complete);
+    return complete;
+  }
+
+  quizSubmit.addEventListener("click", function(){
+    if(quizSubmit.classList.contains("disabled")) return;
+    quizSubmit.disabled = true;
+    quizSubmit.innerHTML = '<span class="spinner-inline"></span>Analysing your preferences...';
+    setTimeout(function(){
+      quizPanel.style.display = "none";
+      quizResultPanel.style.display = "block";
+    }, 1400);
+  });
+
+  // ---------- randomised calibrated background (chosen fresh each run) ----------
+  // ---------- randomised calibrated background (chosen fresh each run) ----------
+
+var bgOptions = [
+
+  // EXISTING JPEG BACKGROUND
+  {
+    type: "image",
+    url: "data:image/jpeg;base64,PASTE-YOUR-EXISTING-JPEG-DATA-HERE",
+    label: "aura colours"
+  },
+
+  // NEW VIDEO BACKGROUND
+  {
+    type: "video",
+    url: "pod-background.mp4",
+    label: "calm environment"
+  }
+
+];
+
+// Randomly choose ONE background every time the simulation starts
+var chosenBg = bgOptions[Math.floor(Math.random() * bgOptions.length)];
+
+
+function applyCalibratedBackground(){
+
+  var bgLayer = $("bg-layer");
+  var bgVideo = $("bg-video");
+  var stageEl = $("stage");
+
+  // Reset both background types
+  bgLayer.style.backgroundImage = "";
+  bgLayer.classList.remove("video-active");
+
+  bgVideo.pause();
+  bgVideo.removeAttribute("src");
+  bgVideo.style.display = "none";
+
+
+  // ---------- IMAGE BACKGROUND ----------
+  if(chosenBg.type === "image"){
+
+    bgLayer.style.backgroundImage =
+      "linear-gradient(rgba(6,7,8,0.42), rgba(6,7,8,0.62)), url('" +
+      chosenBg.url +
+      "')";
+
+  }
+
+
+  // ---------- VIDEO BACKGROUND ----------
+  else if(chosenBg.type === "video"){
+
+    bgVideo.src = chosenBg.url;
+    bgVideo.style.display = "block";
+
+    bgLayer.classList.add("video-active");
+
+    // Start from the beginning
+    bgVideo.currentTime = 0;
+
+    // Autoplay because video is muted
+    var playPromise = bgVideo.play();
+
+    if(playPromise !== undefined){
+      playPromise.catch(function(){
+        console.log("Video autoplay was blocked by the browser.");
+      });
+    }
+
+  }
+
+
+  // Turn background on
+  bgLayer.classList.add("active");
+  stageEl.classList.add("bg-applied");
+}
+
+
+// ---------- APPLY BUTTON ----------
+
+$("quiz-apply-yes").addEventListener("click", function(){
+
+  applyCalibratedBackground();
+
+  showScreen("profile");
+
+});
+
+
+// ---------- KEEP DEFAULT BUTTON ----------
+
+$("quiz-apply-no").addEventListener("click", function(){
+
+  showScreen("profile");
+
+});
+
+  // ---------- profile screen ----------
+  var nameInput = $("input-name"), ageInput = $("input-age"), detailsInput = $("input-details");
+  var profileBtn = $("profile-continue");
+  function checkProfileValid(){
+    var valid = nameInput.value.trim().length > 0 && ageInput.value.trim().length > 0;
+    profileBtn.classList.toggle("disabled", !valid);
+    return valid;
+  }
+  nameInput.addEventListener("input", checkProfileValid);
+  ageInput.addEventListener("input", function(){
+    ageInput.value = ageInput.value.replace(/[^0-9]/g,"");
+    checkProfileValid();
+  });
+  profileBtn.addEventListener("click", function(){
+    if(!checkProfileValid()) return;
+    state.name = nameInput.value.trim();
+    state.age = ageInput.value.trim();
+    state.details = detailsInput.value.trim();
+    showScreen("capture");
+  });
+
+  // ---------- capture screen (simple device-camera file capture) ----------
+  var captureBtn = $("capture-btn"), captureInput = $("capture-input");
+  var captureImg = $("capture-img"), capturePlaceholder = $("capture-placeholder");
+  var captureContinue = $("capture-continue");
+
+  captureBtn.addEventListener("click", function(){ captureInput.click(); });
+  captureInput.addEventListener("change", function(e){
+    var file = e.target.files && e.target.files[0];
+    if(!file) return;
+    var reader = new FileReader();
+    reader.onload = function(){
+      captureImg.src = reader.result;
+      captureImg.style.display = "block";
+      capturePlaceholder.style.display = "none";
+      state.photo = reader.result;
+      captureContinue.classList.remove("disabled");
+    };
+    reader.readAsDataURL(file);
+  });
+
+  captureContinue.addEventListener("click", function(){
+    if(captureContinue.classList.contains("disabled")) return;
+    showScreen("pod");
+  });
+
+  // ---------- pod entry ----------
+  $("pod-verify").addEventListener("click", function(){
+    showScreen("stress-high");
+    startHighGraph();
+  });
+
+  // ---------- graphs ----------
+  var highInterval = null, lowInterval = null;
+  var highVals = [], lowVals = [];
+
+  function pointsFromVals(vals, w, h, maxV){
+    var n = vals.length;
+    return vals.map(function(v,i){
+      var x = (i/(n-1))*w;
+      var y = h - (v/maxV)*h;
+      return x.toFixed(1)+","+y.toFixed(1);
+    }).join(" ");
+  }
+
+  function startHighGraph(){
+    clearInterval(highInterval);
+    highVals = [];
+    for(var i=0;i<24;i++) highVals.push(40 + Math.random()*15);
+    render();
+    var t = 0;
+    highInterval = setInterval(function(){
+      t++;
+      var base = Math.min(60 + t*2, 88);
+      var v = base + Math.random()*14 - 4;
+      highVals.shift(); highVals.push(Math.max(20, Math.min(98, v)));
+      render();
+      $("stress-high-num").textContent = Math.round(highVals[highVals.length-1]);
+    }, 350);
+    function render(){
+      $("graph-high").setAttribute("points", pointsFromVals(highVals, 300, 120, 100));
+    }
+  }
+
+  function startLowGraph(){
+    clearInterval(lowInterval);
+    lowVals = [];
+    for(var i=0;i<24;i++) lowVals.push(80 - i*2);
+    render();
+    var t = 0;
+    lowInterval = setInterval(function(){
+      t++;
+      var base = Math.max(20, 55 - t*3);
+      var v = base + Math.random()*10 - 5;
+      lowVals.shift(); lowVals.push(Math.max(8, Math.min(85, v)));
+      render();
+      $("stress-low-num").textContent = Math.round(lowVals[lowVals.length-1]);
+    }, 350);
+    function render(){
+      $("graph-low").setAttribute("points", pointsFromVals(lowVals, 300, 120, 100));
+    }
+  }
+
+  // ---------- breathing exercise: 4-7-8-5 method (single pass) ----------
+  var breathTimeouts = [];
+
+  $("begin-breathing").addEventListener("click", function(){
+    clearInterval(highInterval);
+    showScreen("breathing");
+    runBreathing478();
+  });
+
+  function clearBreathTimeouts(){
+    breathTimeouts.forEach(function(t){ clearTimeout(t); });
+    breathTimeouts = [];
+  }
+
+  function setBreathPhase(label, sublabel, scale, durationMs){
+    var core = $("breath-core");
+    $("breath-label").textContent = label;
+    $("breath-cycle").textContent = sublabel;
+    core.style.transition = "transform " + (durationMs/1000) + "s ease-in-out, box-shadow " + (durationMs/1000) + "s ease-in-out";
+    core.style.transform = "scale(" + scale + ")";
+    core.style.boxShadow = "0 0 " + (20 + scale*30) + "px rgba(212,255,61," + (0.15 + scale*0.2) + ")";
+  }
+
+  function runBreathing478(){
+    clearBreathTimeouts();
+    var core = $("breath-core");
+    core.style.transform = "scale(0.68)";
+    core.style.transition = "none";
+
+    // Phase 1: inhale, 4 seconds
+    breathTimeouts.push(setTimeout(function(){
+      setBreathPhase("BREATHE IN", "4 SECONDS", 1.4, 4000);
+    }, 30));
+
+    // Phase 2: hold, 7 seconds (stay expanded)
+    breathTimeouts.push(setTimeout(function(){
+      setBreathPhase("HOLD", "7 SECONDS", 1.4, 7000);
+    }, 4030));
+
+    // Phase 3: exhale, 8 seconds
+    breathTimeouts.push(setTimeout(function(){
+      setBreathPhase("BREATHE OUT", "8 SECONDS", 0.68, 8000);
+    }, 11030));
+
+    // Phase 4: one closing breath, 5 seconds
+    breathTimeouts.push(setTimeout(function(){
+      setBreathPhase("BREATHE", "5 SECONDS", 1.1, 5000);
+    }, 19030));
+
+    // Done — move on
+    breathTimeouts.push(setTimeout(function(){
+      finishBreathing();
+    }, 24030));
+  }
+
+  function finishBreathing(){
+    showScreen("options");
+    startLowGraph();
+  }
+
+  // ---------- options ----------
+  $("opt-chatbot").addEventListener("click", function(){
+    clearInterval(lowInterval);
+    showScreen("chat");
+    initChat();
+  });
+  $("opt-human").addEventListener("click", function(){
+    clearInterval(lowInterval);
+    showScreen("human");
+  });
+
+  // ---------- chatbot: exactly two bot dialogues ----------
+  var chatMessages = $("chat-messages");
+  var chatInput = $("chat-input");
+  var chatSend = $("chat-send");
+  var chatStage = 0;
+
+  function addMsg(text, from){
+    var d = document.createElement("div");
+    d.className = "msg " + from;
+    d.textContent = text;
+    chatMessages.appendChild(d);
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+  }
+
+  function initChat(){
+    chatMessages.innerHTML = "";
+    chatStage = 0;
+    chatInput.disabled = false;
+    chatInput.value = "";
+    setTimeout(function(){
+      addMsg("Hi, I'm glad you're here. How are you feeling after that breathing session?", "bot");
+    }, 300);
+  }
+
+  function sendChat(){
+    var text = chatInput.value.trim();
+    if(!text || chatStage >= 2) return;
+    addMsg(text, "user");
+    chatInput.value = "";
+
+    if(chatStage === 0){
+      chatStage = 1;
+      setTimeout(function(){
+        addMsg("That's completely valid. You've done really well taking this time for yourself.", "bot");
+        chatStage = 2;
+        chatInput.disabled = true;
+        setTimeout(function(){ showScreen("end"); }, 2600);
+      }, 700);
+    }
+  }
+  chatSend.addEventListener("click", sendChat);
+  chatInput.addEventListener("keydown", function(e){ if(e.key === "Enter") sendChat(); });
+
+  // ---------- human professional / payment ----------
+  $("pay-now").addEventListener("click", function(e){
+    var btn = e.currentTarget;
+    if(btn.dataset.busy) return;
+    btn.dataset.busy = "1";
+    btn.innerHTML = '<span class="spinner-inline"></span>Processing payment...';
+    setTimeout(function(){ showScreen("end"); }, 1800);
+  });
+  $("pay-decline").addEventListener("click", function(){
+    showScreen("end");
+  });
+
+  // ---------- restart ----------
+  $("restart-link").addEventListener("click", function(){
+    location.reload();
+  });
+
+})();
+</script>
+
+</body>
+</html>
